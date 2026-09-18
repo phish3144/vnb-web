@@ -1,0 +1,44 @@
+name: Refresh VNB data
+
+on:
+  schedule:
+    - cron: "0 4 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-vnb-data
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Refresh data
+        env:
+          VNB_CSV_URL: ${{ vars.VNB_CSV_URL || secrets.VNB_CSV_URL }}
+        run: python scripts/refresh_vnb_data.py
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Stage individually so a missing optional vnb.json does not skip vnb.csv
+          git add -- public/data/vnb.csv || true
+          git add -- public/data/vnb.json || true
+          if git diff --staged --quiet; then
+            echo "No data changes; finishing green."
+            exit 0
+          fi
+          git commit -m "chore: refresh VNB data"
+          git push

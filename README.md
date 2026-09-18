@@ -29,3 +29,19 @@ npm run build
 Ausgabe: `dist/`. Die Vite-`base` ist `/vnb-web/` (Projektseite).
 
 Workflow: `.github/workflows/deploy-pages.yml` baut und deployed bei Push auf `main` nach GitHub Pages.
+
+## Daten aktualisieren (MaStR / Enrichment)
+
+### Manuell
+
+CSV unter `public/data/vnb.csv` ersetzen (Semikolon, UTF-8), committen und auf `main` pushen → `deploy-pages.yml` deployed GitHub Pages.
+
+### Automatisch (Refresh-Workflow)
+
+1. Repo-Variable oder Secret `VNB_CSV_URL` auf die URL eines **Slim**-CSV-Exports setzen.
+2. Workflow **Refresh VNB data** (`.github/workflows/refresh-data.yml`) manuell starten oder wöchentlich (So 04:00 UTC) laufen lassen.
+3. Ohne `VNB_CSV_URL`: No-Op (Job bleibt grün, keine Dateiänderung).
+
+**Wichtig:** Niemals den MaStR-Voll-Dump (~3 GB) oder eine open-mastr-Datenbank ins Repo laden. Nur schlanke Exporte.
+
+Quelle: Markstammdatenregister (MaStR) der BNetzA; Lizenz typischerweise [DL-DE-BY-2.0](https://www.govdata.de/dl-de/by-2-0).
