@@ -36,9 +36,28 @@ export function hasVnbTabErgaenzung(rec: VnbRecord): boolean {
   return isPresent(rec.TAB_Ergaenzung_Link) && looksLikeUrlLocal(rec.TAB_Ergaenzung_Link);
 }
 
+/**
+ * German-aware fold for search: case-insensitive, ä/ö/ü/ß and ae/oe/ue/ss
+ * both match (München ≈ Munchen ≈ Muenchen).
+ */
+export function normalizeSearch(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/ä/g, 'ae')
+    .replace(/ö/g, 'oe')
+    .replace(/ü/g, 'ue')
+    .replace(/ß/g, 'ss')
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .replace(/ae/g, 'a')
+    .replace(/oe/g, 'o')
+    .replace(/ue/g, 'u')
+    .replace(/ss/g, 's');
+}
+
 function includesCI(haystack: string, needle: string): boolean {
   if (!needle.trim()) return true;
-  return haystack.toLowerCase().includes(needle.trim().toLowerCase());
+  return normalizeSearch(haystack).includes(normalizeSearch(needle.trim()));
 }
 
 function matchPresence(
@@ -118,10 +137,10 @@ export function matchesFilters(rec: VnbRecord, f: Filters): boolean {
   }
 
   if (f.quick.trim()) {
-    const q = f.quick.trim().toLowerCase();
+    const q = normalizeSearch(f.quick.trim());
     const hit = QUICK_FIELDS.some((key) => {
       const v = rec[key];
-      return isPresent(v) && v.toLowerCase().includes(q);
+      return isPresent(v) && normalizeSearch(v).includes(q);
     });
     if (!hit) return false;
   }
