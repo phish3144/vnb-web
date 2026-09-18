@@ -33,7 +33,9 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add public/data/vnb.csv public/data/vnb.json 2>/dev/null || true
+          # Stage individually so a missing optional vnb.json does not skip vnb.csv
+          git add -- public/data/vnb.csv || true
+          git add -- public/data/vnb.json || true
           if git diff --staged --quiet; then
             echo "No data changes; finishing green."
             exit 0
