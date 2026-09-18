@@ -4,10 +4,10 @@ import { loadVnbData } from './loadData';
 import type { Filters, VnbRecord } from './types';
 import { EMPTY_FILTERS } from './types';
 import { SearchBar } from './components/SearchBar';
-import { AdvancedFilters } from './components/AdvancedFilters';
-import { OverridesToolbar } from './components/OverridesToolbar';
 import { ResultList } from './components/ResultList';
 import { DetailSheet } from './components/DetailSheet';
+import { ToolsPanel } from './components/ToolsPanel';
+import { countActiveAdvanced } from './components/AdvancedFilters';
 import { distinctTabTypen } from './utils';
 import { useTheme } from './hooks/useTheme';
 import {
@@ -32,6 +32,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [toolsOpen, setToolsOpen] = useState(false);
   const { resolved, toggle } = useTheme();
 
   useEffect(() => {
@@ -94,7 +95,6 @@ export default function App() {
     return filtered.find((r) => recordKey(r) === selectedKey) ?? null;
   }, [filtered, selectedKey]);
 
-  // Close detail if selection drops out of filtered set
   useEffect(() => {
     if (selectedKey && !selectedRecord) setSelectedKey(null);
   }, [selectedKey, selectedRecord]);
@@ -143,9 +143,7 @@ export default function App() {
         persist((prev) => mergeOverrides(prev, incoming));
       }
     } catch (e) {
-      window.alert(
-        e instanceof Error ? e.message : 'Import fehlgeschlagen',
-      );
+      window.alert(e instanceof Error ? e.message : 'Import fehlgeschlagen');
     }
   };
 
@@ -166,33 +164,47 @@ export default function App() {
   };
 
   const ovCount = overrideCount(overrides);
+  const advancedCount = countActiveAdvanced(filters);
   const highlightQuery = filters.quick.trim() || filters.name.trim();
+  const toolsBadge = advancedCount + (ovCount > 0 ? 1 : 0);
 
   return (
     <div className="app">
       <header className="header">
         <div className="header-inner">
-          <div className="header-top">
+          <div className="header-brand">
             <h1>VNB-Suche</h1>
+            <p className="subtitle">Verteilnetzbetreiber · Deutschland</p>
+          </div>
+          <div className="header-actions">
             <button
               type="button"
-              className="btn btn-theme"
+              className="btn btn-icon"
+              onClick={() => setToolsOpen(true)}
+              title="Mehr Filter & Overrides"
+              aria-label="Werkzeuge öffnen"
+            >
+              <span aria-hidden>⚙</span>
+              {toolsBadge > 0 ? (
+                <span className="header-badge" aria-hidden>
+                  {toolsBadge > 9 ? '9+' : toolsBadge}
+                </span>
+              ) : null}
+            </button>
+            <button
+              type="button"
+              className="btn btn-icon"
               onClick={toggle}
               title={
                 resolved === 'dark'
                   ? 'Hellmodus aktivieren'
                   : 'Dunkelmodus aktivieren'
               }
-              aria-label={
-                resolved === 'dark' ? 'Hellmodus' : 'Dunkelmodus'
-              }
+              aria-label={resolved === 'dark' ? 'Hellmodus' : 'Dunkelmodus'}
             >
               {resolved === 'dark' ? '☀' : '☾'}
             </button>
           </div>
-          <p className="subtitle">
-            Verteilnetzbetreiber (Deutschland) – lokale Suche in Stammdaten
-          </p>
         </div>
       </header>
 
@@ -200,33 +212,20 @@ export default function App() {
         <SearchBar
           value={filters.quick}
           onChange={handleQuickChange}
+          filters={filters}
+          onFiltersChange={setFilters}
           resultCount={loading || error ? undefined : filtered.length}
           totalCount={loading || error ? undefined : records.length}
         />
 
-        <AdvancedFilters
-          filters={filters}
-          onChange={setFilters}
-          onReset={resetFilters}
-          tabTypen={tabTypen}
-        />
-
-        <OverridesToolbar
-          count={ovCount}
-          onExport={handleExport}
-          onImportFile={handleImportFile}
-          onResetAll={handleResetAll}
-        />
-
         <section className="results-meta" aria-live="polite">
-          {loading && <span>Daten werden geladen…</span>}
-          {error && <span className="error">{error}</span>}
+          {loading ? <span>Daten werden geladen…</span> : null}
+          {error ? <span className="error">{error}</span> : null}
         </section>
 
-        {!loading && !error && (
+        {!loading && !error ? (
           <ResultList
             records={filtered}
-            overrides={overrides}
             selectedKey={selectedKey}
             highlightQuery={highlightQuery}
             onSelect={(key) =>
@@ -234,7 +233,7 @@ export default function App() {
             }
             onResetFilters={resetFilters}
           />
-        )}
+        ) : null}
       </main>
 
       <DetailSheet
@@ -246,10 +245,22 @@ export default function App() {
         onResetRow={handleResetRow}
       />
 
+      <ToolsPanel
+        open={toolsOpen}
+        onClose={() => setToolsOpen(false)}
+        filters={filters}
+        onFiltersChange={setFilters}
+        onResetFilters={resetFilters}
+        tabTypen={tabTypen}
+        overrideCount={ovCount}
+        onExport={handleExport}
+        onImportFile={handleImportFile}
+        onResetAllOverrides={handleResetAll}
+      />
+
       <footer className="footer">
         <span>
-          Clientseitige Filterung · Overrides nur lokal (localStorage) · keine
-          Backend-Anbindung
+          Clientseitige Filterung · Overrides nur lokal · keine Backend-Anbindung
         </span>
       </footer>
     </div>

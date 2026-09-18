@@ -7,6 +7,8 @@ interface Props {
   onChange: (f: Filters) => void;
   onReset: () => void;
   tabTypen: string[];
+  /** Always show body (no collapsible chrome) — for Tools panel */
+  alwaysOpen?: boolean;
 }
 
 const PRESENCE_OPTIONS: { value: PresenceFilter; label: string }[] = [
@@ -15,7 +17,7 @@ const PRESENCE_OPTIONS: { value: PresenceFilter; label: string }[] = [
   { value: 'missing', label: 'fehlt' },
 ];
 
-function countActiveAdvanced(f: Filters): number {
+export function countActiveAdvanced(f: Filters): number {
   let n = 0;
   if (f.name.trim()) n++;
   if (f.ort.trim()) n++;
@@ -30,9 +32,16 @@ function countActiveAdvanced(f: Filters): number {
   return n;
 }
 
-export function AdvancedFilters({ filters, onChange, onReset, tabTypen }: Props) {
-  const [open, setOpen] = useState(false);
+export function AdvancedFilters({
+  filters,
+  onChange,
+  onReset,
+  tabTypen,
+  alwaysOpen = false,
+}: Props) {
+  const [open, setOpen] = useState(alwaysOpen);
   const active = useMemo(() => countActiveAdvanced(filters), [filters]);
+  const showBody = alwaysOpen || open;
 
   const set = <K extends keyof Filters>(key: K, value: Filters[K]) => {
     onChange({ ...filters, [key]: value });
@@ -65,6 +74,156 @@ export function AdvancedFilters({ filters, onChange, onReset, tabTypen }: Props)
     });
   };
 
+  const body = (
+    <div className={alwaysOpen ? 'advanced-body-inline' : 'advanced-body'}>
+      <div className="filter-row">
+        <label className="field">
+          <span>Name</span>
+          <input
+            type="text"
+            value={filters.name}
+            onChange={(e) => set('name', e.target.value)}
+            placeholder="Teilstring"
+          />
+        </label>
+        <label className="field">
+          <span>Ort</span>
+          <input
+            type="text"
+            value={filters.ort}
+            onChange={(e) => set('ort', e.target.value)}
+            placeholder="Teilstring"
+          />
+        </label>
+        <label className="field field-sm">
+          <span>PLZ</span>
+          <input
+            type="text"
+            value={filters.plz}
+            onChange={(e) => set('plz', e.target.value)}
+            placeholder="z. B. 10"
+            inputMode="numeric"
+          />
+        </label>
+      </div>
+
+      <fieldset className="bundesland-fieldset">
+        <legend>Bundesland</legend>
+        <div className="chip-scroll">
+          <div className="chip-grid">
+            {BUNDESLAENDER.map(({ code, name }) => {
+              const isActive = filters.bundeslaender.includes(code);
+              return (
+                <button
+                  key={code}
+                  type="button"
+                  className={`chip ${isActive ? 'chip-active' : ''}`}
+                  aria-pressed={isActive}
+                  title={name}
+                  onClick={() => toggleBl(code)}
+                >
+                  {code}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <p className="hint">
+          Mehrfachauswahl: Treffer, wenn mindestens ein gewähltes Kürzel im Feld
+          vorkommt (z. B. „BB, MV“).
+        </p>
+      </fieldset>
+
+      <div className="filter-row presence-row">
+        <PresenceGroup
+          label="Website"
+          mode={filters.website}
+          text={filters.websiteText}
+          onMode={(m) => set('website', m)}
+          onText={(t) => set('websiteText', t)}
+        />
+        <PresenceGroup
+          label="TAB-Link"
+          mode={filters.tab}
+          text={filters.tabText}
+          onMode={(m) => set('tab', m)}
+          onText={(t) => set('tabText', t)}
+        />
+        <PresenceGroup
+          label="Anmeldeportal vorhanden"
+          mode={filters.anmeldeportal}
+          text={filters.anmeldeportalText}
+          onMode={(m) => set('anmeldeportal', m)}
+          onText={(t) => set('anmeldeportalText', t)}
+        />
+      </div>
+
+      <div className="filter-row presence-row">
+        <PresenceGroup
+          label="hat VNB-TAB-Ergänzung"
+          mode={filters.hatVnbTabErgaenzung}
+          text=""
+          onMode={(m) => set('hatVnbTabErgaenzung', m)}
+          onText={() => {}}
+          hideText
+        />
+        <PresenceGroup
+          label="hat Besonderheiten"
+          mode={filters.hatBesonderheiten}
+          text=""
+          onMode={(m) => set('hatBesonderheiten', m)}
+          onText={() => {}}
+          hideText
+        />
+        <label className="field field-tab-typ">
+          <span>TAB-Typ</span>
+          {tabTypen.length > 0 ? (
+            <select
+              value={filters.tabTyp}
+              onChange={(e) => set('tabTyp', e.target.value)}
+            >
+              <option value="">alle</option>
+              {tabTypen.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              type="text"
+              value={filters.tabTyp}
+              onChange={(e) => set('tabTyp', e.target.value)}
+              placeholder="z. B. VNB_Ergaenzung"
+            />
+          )}
+        </label>
+      </div>
+
+      <div className="advanced-actions">
+        <button
+          type="button"
+          className="btn btn-secondary btn-sm"
+          onClick={resetAdvanced}
+          disabled={active === 0}
+        >
+          Erweiterte Filter zurücksetzen
+        </button>
+        <button type="button" className="btn btn-secondary btn-sm" onClick={onReset}>
+          Alle Filter zurücksetzen
+        </button>
+      </div>
+    </div>
+  );
+
+  if (alwaysOpen) {
+    return (
+      <div className="advanced-filters advanced-filters-inline" aria-label="Erweiterte Filter">
+        {body}
+      </div>
+    );
+  }
+
   return (
     <section className="advanced-filters" aria-label="Erweiterte Filter">
       <button
@@ -75,162 +234,17 @@ export function AdvancedFilters({ filters, onChange, onReset, tabTypen }: Props)
       >
         <span className="advanced-toggle-label">
           Erweiterte Filter
-          {active > 0 && (
+          {active > 0 ? (
             <span className="advanced-count" aria-label={`${active} aktiv`}>
               {active}
             </span>
-          )}
+          ) : null}
         </span>
         <span className="advanced-chevron" aria-hidden>
           {open ? '▾' : '▸'}
         </span>
       </button>
-
-      {open && (
-        <div className="advanced-body">
-          <div className="filter-row">
-            <label className="field">
-              <span>Name</span>
-              <input
-                type="text"
-                value={filters.name}
-                onChange={(e) => set('name', e.target.value)}
-                placeholder="Teilstring"
-              />
-            </label>
-            <label className="field">
-              <span>Ort</span>
-              <input
-                type="text"
-                value={filters.ort}
-                onChange={(e) => set('ort', e.target.value)}
-                placeholder="Teilstring"
-              />
-            </label>
-            <label className="field field-sm">
-              <span>PLZ</span>
-              <input
-                type="text"
-                value={filters.plz}
-                onChange={(e) => set('plz', e.target.value)}
-                placeholder="z. B. 10"
-                inputMode="numeric"
-              />
-            </label>
-          </div>
-
-          <fieldset className="bundesland-fieldset">
-            <legend>Bundesland</legend>
-            <div className="chip-scroll">
-              <div className="chip-grid">
-                {BUNDESLAENDER.map(({ code, name }) => {
-                  const isActive = filters.bundeslaender.includes(code);
-                  return (
-                    <button
-                      key={code}
-                      type="button"
-                      className={`chip ${isActive ? 'chip-active' : ''}`}
-                      aria-pressed={isActive}
-                      title={name}
-                      onClick={() => toggleBl(code)}
-                    >
-                      {code}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            <p className="hint">
-              Mehrfachauswahl: Treffer, wenn mindestens ein gewähltes Kürzel im
-              Feld vorkommt (z. B. „BB, MV“).
-            </p>
-          </fieldset>
-
-          <div className="filter-row presence-row">
-            <PresenceGroup
-              label="Website"
-              mode={filters.website}
-              text={filters.websiteText}
-              onMode={(m) => set('website', m)}
-              onText={(t) => set('websiteText', t)}
-            />
-            <PresenceGroup
-              label="TAB-Link"
-              mode={filters.tab}
-              text={filters.tabText}
-              onMode={(m) => set('tab', m)}
-              onText={(t) => set('tabText', t)}
-            />
-            <PresenceGroup
-              label="Anmeldeportal vorhanden"
-              mode={filters.anmeldeportal}
-              text={filters.anmeldeportalText}
-              onMode={(m) => set('anmeldeportal', m)}
-              onText={(t) => set('anmeldeportalText', t)}
-            />
-          </div>
-
-          <div className="filter-row presence-row">
-            <PresenceGroup
-              label="hat VNB-TAB-Ergänzung"
-              mode={filters.hatVnbTabErgaenzung}
-              text=""
-              onMode={(m) => set('hatVnbTabErgaenzung', m)}
-              onText={() => {}}
-              hideText
-            />
-            <PresenceGroup
-              label="hat Besonderheiten"
-              mode={filters.hatBesonderheiten}
-              text=""
-              onMode={(m) => set('hatBesonderheiten', m)}
-              onText={() => {}}
-              hideText
-            />
-            <label className="field field-tab-typ">
-              <span>TAB-Typ</span>
-              {tabTypen.length > 0 ? (
-                <select
-                  value={filters.tabTyp}
-                  onChange={(e) => set('tabTyp', e.target.value)}
-                >
-                  <option value="">alle</option>
-                  {tabTypen.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  type="text"
-                  value={filters.tabTyp}
-                  onChange={(e) => set('tabTyp', e.target.value)}
-                  placeholder="z. B. VNB_Ergaenzung"
-                />
-              )}
-            </label>
-          </div>
-
-          <div className="advanced-actions">
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={resetAdvanced}
-              disabled={active === 0}
-            >
-              Erweiterte Filter zurücksetzen
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={onReset}
-            >
-              Alle Filter zurücksetzen
-            </button>
-          </div>
-        </div>
-      )}
+      {showBody ? body : null}
     </section>
   );
 }
@@ -266,7 +280,7 @@ function PresenceGroup({
           </button>
         ))}
       </div>
-      {!hideText && (
+      {!hideText ? (
         <input
           type="text"
           className="presence-text"
@@ -275,7 +289,7 @@ function PresenceGroup({
           disabled={mode === 'missing'}
           onChange={(e) => onText(e.target.value)}
         />
-      )}
+      ) : null}
     </div>
   );
 }

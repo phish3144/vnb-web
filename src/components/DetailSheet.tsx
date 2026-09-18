@@ -29,12 +29,10 @@ export function DetailSheet({
   const isMobile = useMediaQuery('(max-width: 720px)');
   const [editing, setEditing] = useState(false);
 
-  // Reset edit mode when switching records
   useEffect(() => {
     setEditing(false);
   }, [rec ? recordKey(rec) : null]);
 
-  // Escape to close
   useEffect(() => {
     if (!rec) return;
     const onKey = (e: KeyboardEvent) => {
@@ -44,7 +42,6 @@ export function DetailSheet({
     return () => window.removeEventListener('keydown', onKey);
   }, [rec, onClose]);
 
-  // Body scroll lock on mobile fullscreen
   useEffect(() => {
     if (!rec || !isMobile) return;
     const prev = document.body.style.overflow;
@@ -70,6 +67,7 @@ export function DetailSheet({
     if (editing) {
       return (
         <EditableItem
+          key={fieldName}
           label={label}
           field={fieldName}
           value={rec[fieldName]}
@@ -81,6 +79,7 @@ export function DetailSheet({
     }
     return (
       <DetailItem
+        key={fieldName}
         label={label}
         value={rec[fieldName]}
         links={opts?.links}
@@ -111,6 +110,14 @@ export function DetailSheet({
             <p className="detail-sheet-sub muted">
               {[rec.Ort, rec.Bundesland].filter(isPresent).join(' · ') || '—'}
             </p>
+            {hasOverride ? (
+              <span
+                className="badge-override detail-override-badge"
+                title="Dieser Eintrag hat lokale Überschreibungen"
+              >
+                lokal überschrieben
+              </span>
+            ) : null}
           </div>
           <button
             type="button"
@@ -122,15 +129,100 @@ export function DetailSheet({
           </button>
         </header>
 
-        <div className="detail-toolbar">
-          {hasOverride && (
-            <span
-              className="badge-override"
-              title="Dieser Eintrag hat lokale Überschreibungen"
-            >
-              lokal überschrieben
-            </span>
-          )}
+        <div className="detail-sheet-body">
+          <section className="detail-section">
+            <h3 className="detail-section-title">Stammdaten</h3>
+            <dl className="detail-grid">
+              <DetailItem label="Name" value={rec.Name} />
+              <DetailItem label="Rechtsform" value={rec.Rechtsform} />
+              <DetailItem label="Straße" value={rec.Strasse} />
+              <DetailItem label="PLZ" value={rec.PLZ} />
+              <DetailItem label="Ort" value={rec.Ort} />
+              <DetailItem label="Bundesland" value={rec.Bundesland} />
+              {field('Telefon', 'Telefon')}
+              {field('Email', 'E-Mail', { email: true })}
+              {field('Website', 'Website', { links: true })}
+              {isPresent(rec.MastrNummer) ? (
+                <DetailItem label="MaStR-Nummer" value={rec.MastrNummer} />
+              ) : null}
+            </dl>
+          </section>
+
+          <section className="detail-section">
+            <h3 className="detail-section-title">TAB / Links</h3>
+            <dl className="detail-grid">
+              {field(
+                'TAB_Ergaenzung_Link',
+                hasErgaenzung ? 'TAB-Ergänzung (primär)' : 'TAB-Ergänzung',
+                { links: true },
+              )}
+              {field(
+                'TAB_Niederspannung_Link',
+                hasErgaenzung
+                  ? 'TAB Niederspannung (Fallback)'
+                  : 'TAB Niederspannung',
+                { links: true },
+              )}
+              <DetailItem label="TAB-Stand" value={rec.TAB_Stand} />
+              {isPresent(rec.TAB_Typ) ? (
+                <DetailItem label="TAB-Typ" value={rec.TAB_Typ} />
+              ) : null}
+              {field('Anmeldeportal', 'Anmeldeportal', { links: true })}
+              {field('Planauskunft_Link', 'Planauskunft', { links: true })}
+              {isPresent(rec.Link_geprueft) ? (
+                <DetailItem label="Link geprüft" value={rec.Link_geprueft} />
+              ) : null}
+              {isPresent(rec.Link_Status) ? (
+                <DetailItem label="Link-Status" value={rec.Link_Status} />
+              ) : null}
+            </dl>
+          </section>
+
+          <section className="detail-section">
+            <h3 className="detail-section-title">Quellen</h3>
+            <dl className="detail-grid">
+              <DetailItem label="Quelle" value={rec.Quelle} links />
+              {isPresent(rec.Quelle_Stammdaten) ? (
+                <DetailItem
+                  label="Quelle Stammdaten"
+                  value={rec.Quelle_Stammdaten}
+                  links
+                />
+              ) : null}
+              {isPresent(rec.Quelle_TAB) ? (
+                <DetailItem label="Quelle TAB" value={rec.Quelle_TAB} links />
+              ) : null}
+              {isPresent(rec.Quelle_Portal) ? (
+                <DetailItem
+                  label="Quelle Portal"
+                  value={rec.Quelle_Portal}
+                  links
+                />
+              ) : null}
+              {isPresent(rec.Quelle_Planauskunft) ? (
+                <DetailItem
+                  label="Quelle Planauskunft"
+                  value={rec.Quelle_Planauskunft}
+                  links
+                />
+              ) : null}
+              <DetailItem label="Recherche-Datum" value={rec.Recherche_Datum} />
+              <DetailItem label="Anmerkung" value={rec.Anmerkung} wide />
+            </dl>
+          </section>
+
+          <section className="detail-section">
+            <h3 className="detail-section-title">Besonderheiten</h3>
+            <dl className="detail-grid">
+              {field('Besonderheiten', 'Besonderheiten', {
+                multiline: true,
+                wide: true,
+              })}
+            </dl>
+          </section>
+        </div>
+
+        <footer className="detail-sheet-footer">
           <button
             type="button"
             className={`btn btn-sm ${editing ? 'btn-secondary' : 'btn-primary'}`}
@@ -155,82 +247,7 @@ export function DetailSheet({
           >
             Overrides zurücksetzen
           </button>
-        </div>
-
-        <div className="detail-sheet-body">
-          <dl className="detail-grid">
-            <DetailItem label="Name" value={rec.Name} />
-            <DetailItem label="Rechtsform" value={rec.Rechtsform} />
-            <DetailItem label="Straße" value={rec.Strasse} />
-            <DetailItem label="PLZ" value={rec.PLZ} />
-            <DetailItem label="Ort" value={rec.Ort} />
-            <DetailItem label="Bundesland" value={rec.Bundesland} />
-
-            {field('Telefon', 'Telefon')}
-            {field('Email', 'E-Mail', { email: true })}
-            {field('Website', 'Website', { links: true })}
-            {field(
-              'TAB_Ergaenzung_Link',
-              hasErgaenzung ? 'TAB-Ergänzung (primär)' : 'TAB-Ergänzung',
-              { links: true },
-            )}
-            {field(
-              'TAB_Niederspannung_Link',
-              hasErgaenzung
-                ? 'TAB Niederspannung (Fallback)'
-                : 'TAB Niederspannung',
-              { links: true },
-            )}
-            <DetailItem label="TAB-Stand" value={rec.TAB_Stand} />
-            {field('Anmeldeportal', 'Anmeldeportal', { links: true })}
-            {field('Planauskunft_Link', 'Planauskunft', { links: true })}
-
-            {isPresent(rec.MastrNummer) && (
-              <DetailItem label="MaStR-Nummer" value={rec.MastrNummer} />
-            )}
-            {isPresent(rec.TAB_Typ) && (
-              <DetailItem label="TAB-Typ" value={rec.TAB_Typ} />
-            )}
-            {isPresent(rec.Link_geprueft) && (
-              <DetailItem label="Link geprüft" value={rec.Link_geprueft} />
-            )}
-            {isPresent(rec.Link_Status) && (
-              <DetailItem label="Link-Status" value={rec.Link_Status} />
-            )}
-
-            <DetailItem label="Quelle" value={rec.Quelle} links />
-            {isPresent(rec.Quelle_Stammdaten) && (
-              <DetailItem
-                label="Quelle Stammdaten"
-                value={rec.Quelle_Stammdaten}
-                links
-              />
-            )}
-            {isPresent(rec.Quelle_TAB) && (
-              <DetailItem label="Quelle TAB" value={rec.Quelle_TAB} links />
-            )}
-            {isPresent(rec.Quelle_Portal) && (
-              <DetailItem
-                label="Quelle Portal"
-                value={rec.Quelle_Portal}
-                links
-              />
-            )}
-            {isPresent(rec.Quelle_Planauskunft) && (
-              <DetailItem
-                label="Quelle Planauskunft"
-                value={rec.Quelle_Planauskunft}
-                links
-              />
-            )}
-            <DetailItem label="Recherche-Datum" value={rec.Recherche_Datum} />
-            <DetailItem label="Anmerkung" value={rec.Anmerkung} wide />
-            {field('Besonderheiten', 'Besonderheiten', {
-              multiline: true,
-              wide: true,
-            })}
-          </dl>
-        </div>
+        </footer>
       </aside>
     </div>
   );
@@ -261,12 +278,12 @@ function EditableItem({
     >
       <dt>
         {label}
-        {overridden && (
+        {overridden ? (
           <span className="override-mark" title="Lokal überschrieben">
             {' '}
             ✎
           </span>
-        )}
+        ) : null}
       </dt>
       <dd>
         {multiline ? (
@@ -287,15 +304,11 @@ function EditableItem({
             placeholder="n/a oder Wert…"
             aria-label={label}
             inputMode={
-              field === 'Telefon'
-                ? 'tel'
-                : field === 'Email'
-                  ? 'email'
-                  : 'url'
+              field === 'Telefon' ? 'tel' : field === 'Email' ? 'email' : 'url'
             }
           />
         )}
-        {!multiline && urls.length > 0 && (
+        {!multiline && urls.length > 0 ? (
           <span className="link-stack edit-links">
             {urls.map((u) => (
               <a
@@ -309,12 +322,12 @@ function EditableItem({
               </a>
             ))}
           </span>
-        )}
-        {isEmail && (
+        ) : null}
+        {isEmail ? (
           <a href={`mailto:${value.trim()}`} className="ext-link edit-links">
             E-Mail öffnen
           </a>
-        )}
+        ) : null}
       </dd>
     </div>
   );
@@ -358,9 +371,9 @@ function DetailItem({
               {u}
             </a>
           ))}
-          {urls.length === 1 && value.trim() !== urls[0] && (
+          {urls.length === 1 && value.trim() !== urls[0] ? (
             <span className="muted small block">{value}</span>
-          )}
+          ) : null}
         </span>
       );
     } else {

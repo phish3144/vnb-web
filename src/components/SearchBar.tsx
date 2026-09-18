@@ -1,14 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
+import type { Filters } from '../types';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 
 interface Props {
   value: string;
   onChange: (value: string) => void;
+  filters: Filters;
+  onFiltersChange: (f: Filters) => void;
   resultCount?: number;
   totalCount?: number;
 }
 
-export function SearchBar({ value, onChange, resultCount, totalCount }: Props) {
+export function SearchBar({
+  value,
+  onChange,
+  filters,
+  onFiltersChange,
+  resultCount,
+  totalCount,
+}: Props) {
   const [local, setLocal] = useState(value);
   const debounced = useDebouncedValue(local, 175);
   const onChangeRef = useRef(onChange);
@@ -16,24 +26,40 @@ export function SearchBar({ value, onChange, resultCount, totalCount }: Props) {
   onChangeRef.current = onChange;
   valueRef.current = value;
 
-  // Sync from parent (e.g. reset)
   useEffect(() => {
     setLocal(value);
   }, [value]);
 
-  // Push debounced local to parent only (never undo an external reset)
   useEffect(() => {
     if (debounced !== valueRef.current) {
       onChangeRef.current(debounced);
     }
   }, [debounced]);
 
+  const ergActive = filters.hatVnbTabErgaenzung === 'has';
+  const portalActive = filters.anmeldeportal === 'has';
+
+  const toggleErg = () => {
+    onFiltersChange({
+      ...filters,
+      hatVnbTabErgaenzung: ergActive ? 'any' : 'has',
+    });
+  };
+
+  const togglePortal = () => {
+    onFiltersChange({
+      ...filters,
+      anmeldeportal: portalActive ? 'any' : 'has',
+      ...(portalActive ? { anmeldeportalText: '' } : {}),
+    });
+  };
+
   return (
-    <div className="search-hero">
-      <label className="search-hero-label" htmlFor="vnb-quick-search">
-        Schnellsuche
-      </label>
-      <div className="search-hero-row">
+    <div className="find-zone">
+      <div className="search-sticky">
+        <label className="visually-hidden" htmlFor="vnb-quick-search">
+          Suche
+        </label>
         <div className="search-input-wrap">
           <span className="search-icon" aria-hidden>
             ⌕
@@ -48,7 +74,7 @@ export function SearchBar({ value, onChange, resultCount, totalCount }: Props) {
             autoComplete="off"
             autoFocus
           />
-          {local && (
+          {local ? (
             <button
               type="button"
               className="search-clear"
@@ -60,15 +86,37 @@ export function SearchBar({ value, onChange, resultCount, totalCount }: Props) {
             >
               ×
             </button>
-          )}
+          ) : null}
         </div>
+
+        <div className="quick-chips" role="group" aria-label="Schnellfilter">
+          <button
+            type="button"
+            className={`quick-chip ${ergActive ? 'is-active' : ''}`}
+            aria-pressed={ergActive}
+            onClick={toggleErg}
+          >
+            hat VNB-TAB-Ergänzung
+          </button>
+          <button
+            type="button"
+            className={`quick-chip ${portalActive ? 'is-active' : ''}`}
+            aria-pressed={portalActive}
+            onClick={togglePortal}
+          >
+            hat Anmeldeportal
+          </button>
+        </div>
+
+        {typeof resultCount === 'number' && typeof totalCount === 'number' ? (
+          <p className="search-hero-meta" aria-live="polite">
+            <strong>{resultCount}</strong>
+            {resultCount === totalCount
+              ? ` Einträg${resultCount === 1 ? '' : 'e'}`
+              : ` von ${totalCount} Einträgen`}
+          </p>
+        ) : null}
       </div>
-      {typeof resultCount === 'number' && typeof totalCount === 'number' && (
-        <p className="search-hero-meta" aria-live="polite">
-          <strong>{resultCount}</strong> von <strong>{totalCount}</strong>{' '}
-          Einträgen
-        </p>
-      )}
     </div>
   );
 }
