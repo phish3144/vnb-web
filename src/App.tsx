@@ -1,11 +1,15 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { filterRecords } from './filter';
 import { loadVnbData } from './loadData';
 import type { Filters, VnbRecord } from './types';
 import { EMPTY_FILTERS } from './types';
-import { FilterBar } from './components/FilterBar';
-import { ResultTable } from './components/ResultTable';
+import { SearchBar } from './components/SearchBar';
+import { AdvancedFilters } from './components/AdvancedFilters';
+import { OverridesToolbar } from './components/OverridesToolbar';
+import { ResultList } from './components/ResultList';
+import { DetailSheet } from './components/DetailSheet';
 import { distinctTabTypen } from './utils';
+import { useTheme } from './hooks/useTheme';
 import {
   applyAllOverrides,
   clearOverrideForKey,
@@ -27,7 +31,8 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const { resolved, toggle } = useTheme();
 
   useEffect(() => {
     setOverrides(loadOverrides());
@@ -55,13 +60,16 @@ export default function App() {
     };
   }, []);
 
-  const persist = useCallback((updater: OverridesMap | ((prev: OverridesMap) => OverridesMap)) => {
-    setOverrides((prev) => {
-      const next = typeof updater === 'function' ? updater(prev) : updater;
-      saveOverrides(next);
-      return next;
-    });
-  }, []);
+  const persist = useCallback(
+    (updater: OverridesMap | ((prev: OverridesMap) => OverridesMap)) => {
+      setOverrides((prev) => {
+        const next = typeof updater === 'function' ? updater(prev) : updater;
+        saveOverrides(next);
+        return next;
+      });
+    },
+    [],
+  );
 
   const records = useMemo(
     () => applyAllOverrides(baseRecords, overrides),
@@ -81,9 +89,23 @@ export default function App() {
     [records, filters],
   );
 
+  const selectedRecord = useMemo(() => {
+    if (!selectedKey) return null;
+    return filtered.find((r) => recordKey(r) === selectedKey) ?? null;
+  }, [filtered, selectedKey]);
+
+  // Close detail if selection drops out of filtered set
+  useEffect(() => {
+    if (selectedKey && !selectedRecord) setSelectedKey(null);
+  }, [selectedKey, selectedRecord]);
+
   const tabTypen = useMemo(() => distinctTabTypen(records), [records]);
 
   const resetFilters = useCallback(() => setFilters(EMPTY_FILTERS), []);
+
+  const handleQuickChange = useCallback((quick: string) => {
+    setFilters((prev) => ({ ...prev, quick }));
+  }, []);
 
   const handleFieldChange = useCallback(
     (key: string, field: OverrideField, value: string) => {
@@ -105,10 +127,6 @@ export default function App() {
     downloadOverrides(overrides);
   };
 
-  const handleImportClick = () => {
-    fileInputRef.current?.click();
-  };
-
   const handleImportFile = async (file: File | null) => {
     if (!file) return;
     try {
@@ -128,8 +146,6 @@ export default function App() {
       window.alert(
         e instanceof Error ? e.message : 'Import fehlgeschlagen',
       );
-    } finally {
-      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -150,12 +166,30 @@ export default function App() {
   };
 
   const ovCount = overrideCount(overrides);
+  const highlightQuery = filters.quick.trim() || filters.name.trim();
 
   return (
     <div className="app">
       <header className="header">
         <div className="header-inner">
-          <h1>VNB-Suche</h1>
+          <div className="header-top">
+            <h1>VNB-Suche</h1>
+            <button
+              type="button"
+              className="btn btn-theme"
+              onClick={toggle}
+              title={
+                resolved === 'dark'
+                  ? 'Hellmodus aktivieren'
+                  : 'Dunkelmodus aktivieren'
+              }
+              aria-label={
+                resolved === 'dark' ? 'Hellmodus' : 'Dunkelmodus'
+              }
+            >
+              {resolved === 'dark' ? '☀' : '☾'}
+            </button>
+          </div>
           <p className="subtitle">
             Verteilnetzbetreiber (Deutschland) – lokale Suche in Stammdaten
           </p>
@@ -163,80 +197,54 @@ export default function App() {
       </header>
 
       <main className="main">
-        <FilterBar
+        <SearchBar
+          value={filters.quick}
+          onChange={handleQuickChange}
+          resultCount={loading || error ? undefined : filtered.length}
+          totalCount={loading || error ? undefined : records.length}
+        />
+
+        <AdvancedFilters
           filters={filters}
           onChange={setFilters}
           onReset={resetFilters}
           tabTypen={tabTypen}
         />
 
-        <section className="overrides-bar" aria-label="Lokale Overrides">
-          <div className="overrides-info">
-            <strong>Lokale Overrides</strong>
-            <span className="muted">
-              {ovCount === 0
-                ? 'keine gespeichert'
-                : `${ovCount} Einträg${ovCount === 1 ? '' : 'e'} in localStorage`}
-            </span>
-            <span className="hint-inline">
-              Import führt zusammen (Merge). Für Replace: zuerst alle zurücksetzen. Nur im Browser.
-            </span>
-          </div>
-          <div className="overrides-actions">
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={handleExport}
-              disabled={ovCount === 0}
-            >
-              Export JSON
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={handleImportClick}
-            >
-              Import JSON
-            </button>
-            <button
-              type="button"
-              className="btn btn-danger btn-sm"
-              onClick={handleResetAll}
-              disabled={ovCount === 0}
-            >
-              Alle zurücksetzen
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="application/json,.json"
-              className="visually-hidden"
-              onChange={(e) => handleImportFile(e.target.files?.[0] ?? null)}
-            />
-          </div>
-        </section>
+        <OverridesToolbar
+          count={ovCount}
+          onExport={handleExport}
+          onImportFile={handleImportFile}
+          onResetAll={handleResetAll}
+        />
 
         <section className="results-meta" aria-live="polite">
           {loading && <span>Daten werden geladen…</span>}
           {error && <span className="error">{error}</span>}
-          {!loading && !error && (
-            <span>
-              <strong>{filtered.length}</strong> von{' '}
-              <strong>{records.length}</strong> Einträgen
-            </span>
-          )}
         </section>
 
         {!loading && !error && (
-          <ResultTable
+          <ResultList
             records={filtered}
-            baseByKey={baseByKey}
             overrides={overrides}
-            onFieldChange={handleFieldChange}
-            onResetRow={handleResetRow}
+            selectedKey={selectedKey}
+            highlightQuery={highlightQuery}
+            onSelect={(key) =>
+              setSelectedKey((prev) => (prev === key ? null : key))
+            }
+            onResetFilters={resetFilters}
           />
         )}
       </main>
+
+      <DetailSheet
+        rec={selectedRecord}
+        baseByKey={baseByKey}
+        overrides={overrides}
+        onClose={() => setSelectedKey(null)}
+        onFieldChange={handleFieldChange}
+        onResetRow={handleResetRow}
+      />
 
       <footer className="footer">
         <span>
