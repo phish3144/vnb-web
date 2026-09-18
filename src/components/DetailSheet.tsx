@@ -1,6 +1,6 @@
 import { useEffect, useId, useState, type ReactNode } from 'react';
 import type { VnbRecord } from '../types';
-import { extractUrls, isPresent, toHref } from '../utils';
+import { extractUrls, isMissing, isPresent, toHref } from '../utils';
 import {
   type OverrideField,
   type OverridesMap,
@@ -15,6 +15,47 @@ interface Props {
   onClose: () => void;
   onFieldChange: (key: string, field: OverrideField, value: string) => void;
   onResetRow: (key: string) => void;
+}
+
+type ActionDef = {
+  field: OverrideField;
+  label: string;
+  shortLabel: string;
+  primary?: boolean;
+};
+
+const PRIMARY_ACTIONS: ActionDef[] = [
+  {
+    field: 'TAB_Ergaenzung_Link',
+    label: 'TAB-Ergänzung',
+    shortLabel: 'Ergänzung',
+    primary: true,
+  },
+  {
+    field: 'TAB_Niederspannung_Link',
+    label: 'TAB Niederspannung',
+    shortLabel: 'TAB NS',
+  },
+  {
+    field: 'Anmeldeportal',
+    label: 'Anmeldeportal',
+    shortLabel: 'Anmeldung',
+  },
+  {
+    field: 'Planauskunft_Link',
+    label: 'Planauskunft',
+    shortLabel: 'Plan',
+  },
+  {
+    field: 'Website',
+    label: 'Website',
+    shortLabel: 'Website',
+  },
+];
+
+function firstHref(value: string): string | null {
+  const urls = extractUrls(value);
+  return urls.length > 0 ? toHref(urls[0]) : null;
 }
 
 export function DetailSheet({
@@ -57,9 +98,58 @@ export function DetailSheet({
   const base = baseByKey.get(rowKey) ?? rec;
   const hasOverride =
     !!overrides[rowKey] && Object.keys(overrides[rowKey]!).length > 0;
-  const hasErgaenzung = isPresent(rec.TAB_Ergaenzung_Link);
 
-  const field = (
+  const actions = PRIMARY_ACTIONS.flatMap((a) => {
+    const href = firstHref(rec[a.field]);
+    return href ? [{ ...a, href }] : [];
+  });
+
+  const hasErgaenzungAction = actions.some(
+    (a) => a.field === 'TAB_Ergaenzung_Link',
+  );
+
+  const addressLines = [
+    isPresent(rec.Strasse) ? rec.Strasse : null,
+    [rec.PLZ, rec.Ort].filter(isPresent).join(' ') || null,
+    isPresent(rec.Bundesland) ? rec.Bundesland : null,
+  ].filter((line): line is string => !!line);
+
+  const tabMeta = [rec.TAB_Typ, rec.TAB_Stand].filter(isPresent).join(' · ');
+
+  const showStammdaten =
+    editing ||
+    addressLines.length > 0 ||
+    isPresent(rec.Rechtsform) ||
+    isPresent(rec.Telefon) ||
+    isPresent(rec.Email) ||
+    isPresent(rec.MastrNummer);
+
+  const showBesonderheiten = editing || isPresent(rec.Besonderheiten);
+
+  const quelleFields: Array<{
+    label: string;
+    value: string;
+    links?: boolean;
+    wide?: boolean;
+  }> = [
+    { label: 'Quelle', value: rec.Quelle, links: true },
+    { label: 'Quelle Stammdaten', value: rec.Quelle_Stammdaten, links: true },
+    { label: 'Quelle TAB', value: rec.Quelle_TAB, links: true },
+    { label: 'Quelle Portal', value: rec.Quelle_Portal, links: true },
+    {
+      label: 'Quelle Planauskunft',
+      value: rec.Quelle_Planauskunft,
+      links: true,
+    },
+    { label: 'Link geprüft', value: rec.Link_geprueft },
+    { label: 'Link-Status', value: rec.Link_Status },
+    { label: 'Recherche-Datum', value: rec.Recherche_Datum },
+    { label: 'Anmerkung', value: rec.Anmerkung, wide: true },
+  ];
+  const visibleQuellen = quelleFields.filter((f) => isPresent(f.value));
+  const showQuellen = visibleQuellen.length > 0;
+
+  const editableField = (
     fieldName: OverrideField,
     label: string,
     opts?: { multiline?: boolean; links?: boolean; email?: boolean; wide?: boolean },
@@ -77,6 +167,7 @@ export function DetailSheet({
         />
       );
     }
+    if (isMissing(rec[fieldName])) return null;
     return (
       <DetailItem
         key={fieldName}
@@ -130,96 +221,175 @@ export function DetailSheet({
         </header>
 
         <div className="detail-sheet-body">
-          <section className="detail-section">
-            <h3 className="detail-section-title">Stammdaten</h3>
-            <dl className="detail-grid">
-              <DetailItem label="Name" value={rec.Name} />
-              <DetailItem label="Rechtsform" value={rec.Rechtsform} />
-              <DetailItem label="Straße" value={rec.Strasse} />
-              <DetailItem label="PLZ" value={rec.PLZ} />
-              <DetailItem label="Ort" value={rec.Ort} />
-              <DetailItem label="Bundesland" value={rec.Bundesland} />
-              {field('Telefon', 'Telefon')}
-              {field('Email', 'E-Mail', { email: true })}
-              {field('Website', 'Website', { links: true })}
-              {isPresent(rec.MastrNummer) ? (
-                <DetailItem label="MaStR-Nummer" value={rec.MastrNummer} />
+          {actions.length > 0 ? (
+            <section
+              className="detail-section detail-actions-section"
+              aria-label="Primäre Links"
+            >
+              <div className="detail-actions">
+                {actions.map((a) => (
+                  <a
+                    key={a.field}
+                    href={a.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`btn detail-action-btn ${
+                      a.primary && hasErgaenzungAction
+                        ? 'btn-primary'
+                        : 'btn-secondary'
+                    }`}
+                    title={a.label}
+                  >
+                    {a.shortLabel}
+                  </a>
+                ))}
+              </div>
+              {!editing && tabMeta ? (
+                <p className="detail-tab-meta muted">{tabMeta}</p>
               ) : null}
-            </dl>
-          </section>
+            </section>
+          ) : null}
 
-          <section className="detail-section">
-            <h3 className="detail-section-title">TAB / Links</h3>
-            <dl className="detail-grid">
-              {field(
-                'TAB_Ergaenzung_Link',
-                hasErgaenzung ? 'TAB-Ergänzung (primär)' : 'TAB-Ergänzung',
-                { links: true },
+          {!editing && !actions.length && tabMeta ? (
+            <section className="detail-section">
+              <h3 className="detail-section-title">TAB</h3>
+              <p className="detail-tab-meta muted detail-tab-meta-solo">
+                {tabMeta}
+              </p>
+            </section>
+          ) : null}
+
+          {showStammdaten ? (
+            <section className="detail-section">
+              <h3 className="detail-section-title">Stammdaten</h3>
+              {editing ? (
+                <dl className="detail-grid detail-grid-compact">
+                  {isPresent(rec.Rechtsform) ? (
+                    <DetailItem label="Rechtsform" value={rec.Rechtsform} />
+                  ) : null}
+                  {isPresent(rec.Strasse) ? (
+                    <DetailItem label="Straße" value={rec.Strasse} />
+                  ) : null}
+                  {isPresent(rec.PLZ) ? (
+                    <DetailItem label="PLZ" value={rec.PLZ} />
+                  ) : null}
+                  {isPresent(rec.Ort) ? (
+                    <DetailItem label="Ort" value={rec.Ort} />
+                  ) : null}
+                  {isPresent(rec.Bundesland) ? (
+                    <DetailItem label="Bundesland" value={rec.Bundesland} />
+                  ) : null}
+                  {editableField('Telefon', 'Telefon')}
+                  {editableField('Email', 'E-Mail', { email: true })}
+                  {editableField('Website', 'Website', { links: true })}
+                  {isPresent(rec.MastrNummer) ? (
+                    <DetailItem label="MaStR-Nummer" value={rec.MastrNummer} />
+                  ) : null}
+                </dl>
+              ) : (
+                <div className="detail-stammdaten">
+                  {isPresent(rec.Rechtsform) ? (
+                    <p className="detail-rechtsform muted">{rec.Rechtsform}</p>
+                  ) : null}
+                  {addressLines.length > 0 ? (
+                    <address className="detail-address">
+                      {addressLines.map((line) => (
+                        <span key={line} className="detail-address-line">
+                          {line}
+                        </span>
+                      ))}
+                    </address>
+                  ) : null}
+                  {isPresent(rec.Telefon) || isPresent(rec.Email) ? (
+                    <div className="detail-kontakt">
+                      {isPresent(rec.Telefon) ? (
+                        <a
+                          href={`tel:${rec.Telefon.replace(/\s+/g, '')}`}
+                          className="ext-link"
+                        >
+                          {rec.Telefon}
+                        </a>
+                      ) : null}
+                      {isPresent(rec.Email) ? (
+                        <a
+                          href={`mailto:${rec.Email.trim()}`}
+                          className="ext-link"
+                        >
+                          {rec.Email}
+                        </a>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  {isPresent(rec.MastrNummer) ? (
+                    <p className="detail-mastr muted small">
+                      MaStR {rec.MastrNummer}
+                    </p>
+                  ) : null}
+                </div>
               )}
-              {field(
-                'TAB_Niederspannung_Link',
-                hasErgaenzung
-                  ? 'TAB Niederspannung (Fallback)'
-                  : 'TAB Niederspannung',
-                { links: true },
+            </section>
+          ) : null}
+
+          {editing ? (
+            <section className="detail-section">
+              <h3 className="detail-section-title">TAB / Links</h3>
+              <dl className="detail-grid detail-grid-compact">
+                {editableField('TAB_Ergaenzung_Link', 'TAB-Ergänzung', {
+                  links: true,
+                })}
+                {editableField('TAB_Niederspannung_Link', 'TAB Niederspannung', {
+                  links: true,
+                })}
+                {editableField('Anmeldeportal', 'Anmeldeportal', {
+                  links: true,
+                })}
+                {editableField('Planauskunft_Link', 'Planauskunft', {
+                  links: true,
+                })}
+                {isPresent(rec.TAB_Typ) ? (
+                  <DetailItem label="TAB-Typ" value={rec.TAB_Typ} />
+                ) : null}
+                {isPresent(rec.TAB_Stand) ? (
+                  <DetailItem label="TAB-Stand" value={rec.TAB_Stand} />
+                ) : null}
+              </dl>
+            </section>
+          ) : null}
+
+          {showBesonderheiten ? (
+            <section className="detail-section detail-besonderheiten">
+              <h3 className="detail-section-title">Besonderheiten</h3>
+              {editing ? (
+                <dl className="detail-grid detail-grid-compact">
+                  {editableField('Besonderheiten', 'Besonderheiten', {
+                    multiline: true,
+                    wide: true,
+                  })}
+                </dl>
+              ) : (
+                <p className="detail-besonderheiten-text">{rec.Besonderheiten}</p>
               )}
-              <DetailItem label="TAB-Stand" value={rec.TAB_Stand} />
-              {isPresent(rec.TAB_Typ) ? (
-                <DetailItem label="TAB-Typ" value={rec.TAB_Typ} />
-              ) : null}
-              {field('Anmeldeportal', 'Anmeldeportal', { links: true })}
-              {field('Planauskunft_Link', 'Planauskunft', { links: true })}
-              {isPresent(rec.Link_geprueft) ? (
-                <DetailItem label="Link geprüft" value={rec.Link_geprueft} />
-              ) : null}
-              {isPresent(rec.Link_Status) ? (
-                <DetailItem label="Link-Status" value={rec.Link_Status} />
-              ) : null}
-            </dl>
-          </section>
+            </section>
+          ) : null}
 
-          <section className="detail-section">
-            <h3 className="detail-section-title">Quellen</h3>
-            <dl className="detail-grid">
-              <DetailItem label="Quelle" value={rec.Quelle} links />
-              {isPresent(rec.Quelle_Stammdaten) ? (
-                <DetailItem
-                  label="Quelle Stammdaten"
-                  value={rec.Quelle_Stammdaten}
-                  links
-                />
-              ) : null}
-              {isPresent(rec.Quelle_TAB) ? (
-                <DetailItem label="Quelle TAB" value={rec.Quelle_TAB} links />
-              ) : null}
-              {isPresent(rec.Quelle_Portal) ? (
-                <DetailItem
-                  label="Quelle Portal"
-                  value={rec.Quelle_Portal}
-                  links
-                />
-              ) : null}
-              {isPresent(rec.Quelle_Planauskunft) ? (
-                <DetailItem
-                  label="Quelle Planauskunft"
-                  value={rec.Quelle_Planauskunft}
-                  links
-                />
-              ) : null}
-              <DetailItem label="Recherche-Datum" value={rec.Recherche_Datum} />
-              <DetailItem label="Anmerkung" value={rec.Anmerkung} wide />
-            </dl>
-          </section>
-
-          <section className="detail-section">
-            <h3 className="detail-section-title">Besonderheiten</h3>
-            <dl className="detail-grid">
-              {field('Besonderheiten', 'Besonderheiten', {
-                multiline: true,
-                wide: true,
-              })}
-            </dl>
-          </section>
+          {showQuellen ? (
+            <details className="detail-section detail-quellen">
+              <summary className="detail-quellen-summary">
+                Quellen &amp; Meta
+              </summary>
+              <dl className="detail-grid detail-grid-compact">
+                {visibleQuellen.map((f) => (
+                  <DetailItem
+                    key={f.label}
+                    label={f.label}
+                    value={f.value}
+                    links={f.links}
+                    wide={f.wide}
+                  />
+                ))}
+              </dl>
+            </details>
+          ) : null}
         </div>
 
         <footer className="detail-sheet-footer">
