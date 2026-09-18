@@ -189,6 +189,17 @@ input:disabled {
   font-size: 0.82rem;
 }
 
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.btn-primary:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
 .btn-secondary {
   background: #f1f5f9;
   border-color: var(--border-strong);

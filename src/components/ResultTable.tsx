@@ -245,18 +245,36 @@ function DetailPanel({
   onFieldChange: (key: string, field: OverrideField, value: string) => void;
   onResetRow: (key: string) => void;
 }) {
+  const [editing, setEditing] = useState(false);
   const hasErgaenzung = isPresent(rec.TAB_Ergaenzung_Link);
 
-  const edit = (field: OverrideField, label: string, multiline?: boolean) => (
-    <EditableItem
-      label={label}
-      field={field}
-      value={rec[field]}
-      baseValue={base[field]}
-      multiline={multiline}
-      onChange={(v) => onFieldChange(rowKey, field, v)}
-    />
-  );
+  const field = (
+    fieldName: OverrideField,
+    label: string,
+    opts?: { multiline?: boolean; links?: boolean; email?: boolean; wide?: boolean },
+  ) => {
+    if (editing) {
+      return (
+        <EditableItem
+          label={label}
+          field={fieldName}
+          value={rec[fieldName]}
+          baseValue={base[fieldName]}
+          multiline={opts?.multiline}
+          onChange={(v) => onFieldChange(rowKey, fieldName, v)}
+        />
+      );
+    }
+    return (
+      <DetailItem
+        label={label}
+        value={rec[fieldName]}
+        links={opts?.links}
+        email={opts?.email}
+        wide={opts?.wide || opts?.multiline}
+      />
+    );
+  };
 
   return (
     <div className="detail-panel" onClick={(e) => e.stopPropagation()}>
@@ -266,6 +284,14 @@ function DetailPanel({
             lokal überschrieben
           </span>
         )}
+        <button
+          type="button"
+          className={`btn btn-sm ${editing ? 'btn-secondary' : 'btn-primary'}`}
+          onClick={() => setEditing((v) => !v)}
+          aria-pressed={editing}
+        >
+          {editing ? 'Fertig' : 'Bearbeiten'}
+        </button>
         <button
           type="button"
           className="btn btn-secondary btn-sm"
@@ -292,20 +318,22 @@ function DetailPanel({
         <DetailItem label="Ort" value={rec.Ort} />
         <DetailItem label="Bundesland" value={rec.Bundesland} />
 
-        {edit('Telefon', 'Telefon')}
-        {edit('Email', 'E-Mail')}
-        {edit('Website', 'Website')}
-        {edit(
+        {field('Telefon', 'Telefon')}
+        {field('Email', 'E-Mail', { email: true })}
+        {field('Website', 'Website', { links: true })}
+        {field(
           'TAB_Ergaenzung_Link',
           hasErgaenzung ? 'TAB-Ergänzung (primär)' : 'TAB-Ergänzung',
+          { links: true },
         )}
-        {edit(
+        {field(
           'TAB_Niederspannung_Link',
           hasErgaenzung ? 'TAB Niederspannung (Fallback)' : 'TAB Niederspannung',
+          { links: true },
         )}
         <DetailItem label="TAB-Stand" value={rec.TAB_Stand} />
-        {edit('Anmeldeportal', 'Anmeldeportal')}
-        {edit('Planauskunft_Link', 'Planauskunft')}
+        {field('Anmeldeportal', 'Anmeldeportal', { links: true })}
+        {field('Planauskunft_Link', 'Planauskunft', { links: true })}
 
         {isPresent(rec.MastrNummer) && (
           <DetailItem label="MaStR-Nummer" value={rec.MastrNummer} />
@@ -339,7 +367,7 @@ function DetailPanel({
         )}
         <DetailItem label="Recherche-Datum" value={rec.Recherche_Datum} />
         <DetailItem label="Anmerkung" value={rec.Anmerkung} wide />
-        {edit('Besonderheiten', 'Besonderheiten', true)}
+        {field('Besonderheiten', 'Besonderheiten', { multiline: true, wide: true })}
       </dl>
     </div>
   );
