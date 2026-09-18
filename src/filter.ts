@@ -148,6 +148,55 @@ export function matchesFilters(rec: VnbRecord, f: Filters): boolean {
   return true;
 }
 
+/** Split folded text into alphanumeric tokens (for whole-word ranking). */
+function searchTokens(value: string): string[] {
+  return normalizeSearch(value)
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+}
+
+/**
+ * Higher = better match. Prefers exact / whole-word Name hits so "EWE"
+ * ranks "EWE NETZ GmbH" above "Gemeindewerke …".
+ */
+export function relevanceScore(rec: VnbRecord, rawQuery: string): number {
+  const q = normalizeSearch(rawQuery.trim());
+  if (!q) return 0;
+
+  const name = normalizeSearch(rec.Name ?? '');
+  const nameTokens = searchTokens(rec.Name ?? '');
+
+  if (name === q) return 1000;
+  if (nameTokens.includes(q)) return 900;
+  if (nameTokens.some((t) => t.startsWith(q) && t !== q)) return 800;
+  if (name.startsWith(q + ' ') || name.startsWith(q)) {
+    // prefix on full name, but not mid-token only (handled below)
+    if (name.startsWith(q) && (name.length === q.length || /[^a-z0-9]/.test(name[q.length] ?? ''))) {
+      return 750;
+    }
+  }
+  if (name.includes(q)) return 350;
+
+  let best = 0;
+  for (const key of QUICK_FIELDS) {
+    if (key === 'Name') continue;
+    const v = rec[key];
+    if (!isPresent(v)) continue;
+    const folded = normalizeSearch(v);
+    const tokens = searchTokens(v);
+    if (tokens.includes(q)) best = Math.max(best, 280);
+    else if (folded.includes(q)) best = Math.max(best, 120);
+  }
+  return best;
+}
+
 export function filterRecords(records: VnbRecord[], f: Filters): VnbRecord[] {
-  return records.filter((r) => matchesFilters(r, f));
+  const filtered = records.filter((r) => matchesFilters(r, f));
+  const q = f.quick.trim() || f.name.trim() || f.ort.trim();
+  if (!q) return filtered;
+
+  return filtered
+    .map((r, index) => ({ r, index, score: relevanceScore(r, q) }))
+    .sort((a, b) => b.score - a.score || a.index - b.index)
+    .map((x) => x.r);
 }
