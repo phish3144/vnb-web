@@ -468,3 +468,66 @@ input:disabled {
     max-width: 200px;
   }
 }
+
+/* Select (TAB-Typ) */
+select {
+  font: inherit;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.field-tab-typ {
+  flex: 1 1 200px;
+  min-width: 160px;
+}
+
+/* BDEW / Muster – de-emphasized */
+.data-row.row-muted {
+  opacity: 0.72;
+  background: #f8fafc;
+}
+
+.data-row.row-muted:hover {
+  background: #f1f5f9;
+  opacity: 0.85;
+}
+
+.detail-row.row-muted td {
+  background: #f1f5f9;
+}
+
+.badge-muster,
+.badge-ergaenzung {
+  display: inline-block;
+  margin-left: 0.4rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 0.12rem 0.4rem;
+  border-radius: 4px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.badge-muster {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+
+.badge-ergaenzung {
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  border: 1px solid #99f6e4;
+}

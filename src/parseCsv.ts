@@ -16,6 +16,12 @@ const FIELDS: (keyof VnbRecord)[] = [
   'Quelle',
   'Recherche_Datum',
   'Anmerkung',
+  'MastrNummer',
+  'TAB_Typ',
+  'TAB_Ergaenzung_Link',
+  'Planauskunft_Link',
+  'Link_geprueft',
+  'Link_Status',
 ];
 
 /** Strip UTF-8 BOM if present */
@@ -26,6 +32,7 @@ function stripBom(text: string): string {
 /**
  * Parse semicolon-separated CSV with quoted fields (RFC-ish).
  * Handles "" escapes and newlines inside quotes.
+ * Missing columns in the header → empty string (no crash).
  */
 export function parseCsv(text: string): VnbRecord[] {
   const raw = stripBom(text).replace(/\r\n/g, '\n').replace(/\r/g, '\n');

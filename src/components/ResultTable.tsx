@@ -1,6 +1,14 @@
 import { useState, type ReactNode } from 'react';
 import type { VnbRecord } from '../types';
-import { displayValue, extractUrls, isPresent, toHref } from '../utils';
+import {
+  displayValue,
+  extractUrls,
+  isBdewOrMusterOnly,
+  isPresent,
+  primaryTabLink,
+  toHref,
+} from '../utils';
+import { hasVnbTabErgaenzung } from '../filter';
 
 interface Props {
   records: VnbRecord[];
@@ -59,10 +67,13 @@ function RowGroup({
   open: boolean;
   onToggle: () => void;
 }) {
+  const muted = isBdewOrMusterOnly(rec);
+  const tabLink = primaryTabLink(rec);
+
   return (
     <>
       <tr
-        className={`data-row ${open ? 'row-open' : ''}`}
+        className={`data-row ${open ? 'row-open' : ''} ${muted ? 'row-muted' : ''}`}
         onClick={onToggle}
         tabIndex={0}
         onKeyDown={(e) => {
@@ -82,6 +93,16 @@ function RowGroup({
           {isPresent(rec.Rechtsform) && (
             <span className="muted small"> · {rec.Rechtsform}</span>
           )}
+          {muted && (
+            <span className="badge-muster" title="BDEW-/Muster-Eintrag">
+              Muster/BDEW
+            </span>
+          )}
+          {hasVnbTabErgaenzung(rec) && (
+            <span className="badge-ergaenzung" title="VNB-TAB-Ergänzung">
+              VNB-TAB
+            </span>
+          )}
         </td>
         <td className="hide-sm">{displayValue(rec.Ort)}</td>
         <td className="hide-md mono">{displayValue(rec.PLZ)}</td>
@@ -91,15 +112,19 @@ function RowGroup({
         <td className="hide-sm" onClick={(e) => e.stopPropagation()}>
           <LinkCell value={rec.Website} short />
         </td>
-        <td className="hide-md status-cell">
-          <StatusDot present={isPresent(rec.TAB_Niederspannung_Link)} label="TAB" />
+        <td className="hide-md status-cell" onClick={(e) => e.stopPropagation()}>
+          {isPresent(tabLink) ? (
+            <LinkCell value={tabLink} short />
+          ) : (
+            <StatusDot present={false} label="TAB" />
+          )}
         </td>
         <td className="hide-md status-cell">
           <StatusDot present={isPresent(rec.Anmeldeportal)} label="Portal" />
         </td>
       </tr>
       {open && (
-        <tr className="detail-row">
+        <tr className={`detail-row ${muted ? 'row-muted' : ''}`}>
           <td colSpan={8}>
             <DetailPanel rec={rec} />
           </td>
@@ -153,6 +178,7 @@ function hostLabel(url: string): string {
 }
 
 function DetailPanel({ rec }: { rec: VnbRecord }) {
+  const hasErgaenzung = isPresent(rec.TAB_Ergaenzung_Link);
   return (
     <div className="detail-panel">
       <dl className="detail-grid">
@@ -165,9 +191,35 @@ function DetailPanel({ rec }: { rec: VnbRecord }) {
         <DetailItem label="Telefon" value={rec.Telefon} />
         <DetailItem label="E-Mail" value={rec.Email} email />
         <DetailItem label="Website" value={rec.Website} links />
-        <DetailItem label="TAB Niederspannung" value={rec.TAB_Niederspannung_Link} links />
+        {hasErgaenzung && (
+          <DetailItem
+            label="TAB-Ergänzung (primär)"
+            value={rec.TAB_Ergaenzung_Link}
+            links
+          />
+        )}
+        <DetailItem
+          label={hasErgaenzung ? 'TAB Niederspannung (Fallback)' : 'TAB Niederspannung'}
+          value={rec.TAB_Niederspannung_Link}
+          links
+        />
         <DetailItem label="TAB-Stand" value={rec.TAB_Stand} />
         <DetailItem label="Anmeldeportal" value={rec.Anmeldeportal} links />
+        {isPresent(rec.MastrNummer) && (
+          <DetailItem label="MaStR-Nummer" value={rec.MastrNummer} />
+        )}
+        {isPresent(rec.TAB_Typ) && (
+          <DetailItem label="TAB-Typ" value={rec.TAB_Typ} />
+        )}
+        {isPresent(rec.Planauskunft_Link) && (
+          <DetailItem label="Planauskunft" value={rec.Planauskunft_Link} links />
+        )}
+        {isPresent(rec.Link_geprueft) && (
+          <DetailItem label="Link geprüft" value={rec.Link_geprueft} />
+        )}
+        {isPresent(rec.Link_Status) && (
+          <DetailItem label="Link-Status" value={rec.Link_Status} />
+        )}
         <DetailItem label="Quelle" value={rec.Quelle} links />
         <DetailItem label="Recherche-Datum" value={rec.Recherche_Datum} />
         <DetailItem label="Anmerkung" value={rec.Anmerkung} wide />

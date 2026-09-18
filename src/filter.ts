@@ -13,6 +13,29 @@ export function isPresent(value: string | undefined | null): boolean {
   return !isMissing(value);
 }
 
+function looksLikeUrlLocal(value: string): boolean {
+  if (isMissing(value)) return false;
+  const v = value.trim();
+  return /^https?:\/\//i.test(v) || /^www\./i.test(v);
+}
+
+/** Primärer TAB-Link: Ergänzung bevorzugen, sonst Niederspannung */
+export function primaryTabLink(rec: VnbRecord): string {
+  if (isPresent(rec.TAB_Ergaenzung_Link)) {
+    return rec.TAB_Ergaenzung_Link;
+  }
+  return rec.TAB_Niederspannung_Link ?? '';
+}
+
+/**
+ * VNB-TAB-Ergänzung: TAB_Typ === VNB_Ergaenzung (ci) ODER echter Ergänzungslink.
+ */
+export function hasVnbTabErgaenzung(rec: VnbRecord): boolean {
+  const typ = (rec.TAB_Typ ?? '').trim().toLowerCase();
+  if (typ === 'vnb_ergaenzung') return true;
+  return isPresent(rec.TAB_Ergaenzung_Link) && looksLikeUrlLocal(rec.TAB_Ergaenzung_Link);
+}
+
 function includesCI(haystack: string, needle: string): boolean {
   if (!needle.trim()) return true;
   return haystack.toLowerCase().includes(needle.trim().toLowerCase());
@@ -55,9 +78,14 @@ const QUICK_FIELDS: (keyof VnbRecord)[] = [
   'Email',
   'Telefon',
   'TAB_Niederspannung_Link',
+  'TAB_Ergaenzung_Link',
   'Anmeldeportal',
   'Anmerkung',
   'Rechtsform',
+  'MastrNummer',
+  'TAB_Typ',
+  'Planauskunft_Link',
+  'Link_Status',
 ];
 
 export function matchesFilters(rec: VnbRecord, f: Filters): boolean {
@@ -67,9 +95,22 @@ export function matchesFilters(rec: VnbRecord, f: Filters): boolean {
   if (!matchesBundesland(rec.Bundesland, f.bundeslaender)) return false;
 
   if (!matchPresence(rec.Website, f.website, f.websiteText)) return false;
-  if (!matchPresence(rec.TAB_Niederspannung_Link, f.tab, f.tabText)) return false;
+
+  // TAB-Link: Primärlink (Ergänzung bevorzugt) für Presence/Freitext
+  const tabLink = primaryTabLink(rec);
+  if (!matchPresence(tabLink, f.tab, f.tabText)) return false;
+
   if (!matchPresence(rec.Anmeldeportal, f.anmeldeportal, f.anmeldeportalText)) {
     return false;
+  }
+
+  if (f.hatVnbTabErgaenzung === 'has' && !hasVnbTabErgaenzung(rec)) return false;
+  if (f.hatVnbTabErgaenzung === 'missing' && hasVnbTabErgaenzung(rec)) return false;
+
+  if (f.tabTyp.trim()) {
+    const want = f.tabTyp.trim().toLowerCase();
+    const got = (rec.TAB_Typ ?? '').trim().toLowerCase();
+    if (got !== want) return false;
   }
 
   if (f.quick.trim()) {

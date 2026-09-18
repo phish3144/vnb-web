@@ -5,6 +5,7 @@ interface Props {
   filters: Filters;
   onChange: (f: Filters) => void;
   onReset: () => void;
+  tabTypen: string[];
 }
 
 const PRESENCE_OPTIONS: { value: PresenceFilter; label: string }[] = [
@@ -13,7 +14,7 @@ const PRESENCE_OPTIONS: { value: PresenceFilter; label: string }[] = [
   { value: 'missing', label: 'fehlt' },
 ];
 
-export function FilterBar({ filters, onChange, onReset }: Props) {
+export function FilterBar({ filters, onChange, onReset, tabTypen }: Props) {
   const set = <K extends keyof Filters>(key: K, value: Filters[K]) => {
     onChange({ ...filters, [key]: value });
   };
@@ -116,12 +117,46 @@ export function FilterBar({ filters, onChange, onReset }: Props) {
           onText={(t) => set('tabText', t)}
         />
         <PresenceGroup
-          label="Anmeldeportal"
+          label="Anmeldeportal vorhanden"
           mode={filters.anmeldeportal}
           text={filters.anmeldeportalText}
           onMode={(m) => set('anmeldeportal', m)}
           onText={(t) => set('anmeldeportalText', t)}
         />
+      </div>
+
+      <div className="filter-row presence-row">
+        <PresenceGroup
+          label="hat VNB-TAB-Ergänzung"
+          mode={filters.hatVnbTabErgaenzung}
+          text=""
+          onMode={(m) => set('hatVnbTabErgaenzung', m)}
+          onText={() => {}}
+          hideText
+        />
+        <label className="field field-tab-typ">
+          <span>TAB-Typ</span>
+          {tabTypen.length > 0 ? (
+            <select
+              value={filters.tabTyp}
+              onChange={(e) => set('tabTyp', e.target.value)}
+            >
+              <option value="">alle</option>
+              {tabTypen.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              type="text"
+              value={filters.tabTyp}
+              onChange={(e) => set('tabTyp', e.target.value)}
+              placeholder="z. B. VNB_Ergaenzung"
+            />
+          )}
+        </label>
       </div>
     </section>
   );
@@ -133,12 +168,14 @@ function PresenceGroup({
   text,
   onMode,
   onText,
+  hideText,
 }: {
   label: string;
   mode: PresenceFilter;
   text: string;
   onMode: (m: PresenceFilter) => void;
   onText: (t: string) => void;
+  hideText?: boolean;
 }) {
   return (
     <div className="presence-group">
@@ -156,14 +193,16 @@ function PresenceGroup({
           </button>
         ))}
       </div>
-      <input
-        type="text"
-        className="presence-text"
-        placeholder="Freitext…"
-        value={text}
-        disabled={mode === 'missing'}
-        onChange={(e) => onText(e.target.value)}
-      />
+      {!hideText && (
+        <input
+          type="text"
+          className="presence-text"
+          placeholder="Freitext…"
+          value={text}
+          disabled={mode === 'missing'}
+          onChange={(e) => onText(e.target.value)}
+        />
+      )}
     </div>
   );
 }

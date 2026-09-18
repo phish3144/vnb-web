@@ -14,6 +14,13 @@ export interface VnbRecord {
   Quelle: string;
   Recherche_Datum: string;
   Anmerkung: string;
+  /** Optional – fehlt ggf. in älteren CSVs */
+  MastrNummer: string;
+  TAB_Typ: string;
+  TAB_Ergaenzung_Link: string;
+  Planauskunft_Link: string;
+  Link_geprueft: string;
+  Link_Status: string;
 }
 
 export type PresenceFilter = 'any' | 'has' | 'missing';
@@ -29,6 +36,10 @@ export interface Filters {
   tabText: string;
   anmeldeportal: PresenceFilter;
   anmeldeportalText: string;
+  /** VNB_Ergaenzung bzw. eigener TAB-Ergänzungslink */
+  hatVnbTabErgaenzung: PresenceFilter;
+  /** Optionaler Filter nach TAB_Typ (exakter Wert oder leer = alle) */
+  tabTyp: string;
   quick: string;
 }
 
@@ -43,6 +54,8 @@ export const EMPTY_FILTERS: Filters = {
   tabText: '',
   anmeldeportal: 'any',
   anmeldeportalText: '',
+  hatVnbTabErgaenzung: 'any',
+  tabTyp: '',
   quick: '',
 };
 

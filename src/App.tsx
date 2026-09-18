@@ -5,6 +5,7 @@ import type { Filters, VnbRecord } from './types';
 import { EMPTY_FILTERS } from './types';
 import { FilterBar } from './components/FilterBar';
 import { ResultTable } from './components/ResultTable';
+import { distinctTabTypen } from './utils';
 
 export default function App() {
   const [records, setRecords] = useState<VnbRecord[]>([]);
@@ -39,6 +40,8 @@ export default function App() {
     [records, filters],
   );
 
+  const tabTypen = useMemo(() => distinctTabTypen(records), [records]);
+
   const resetFilters = useCallback(() => setFilters(EMPTY_FILTERS), []);
 
   return (
@@ -57,6 +60,7 @@ export default function App() {
           filters={filters}
           onChange={setFilters}
           onReset={resetFilters}
+          tabTypen={tabTypen}
         />
 
         <section className="results-meta" aria-live="polite">
