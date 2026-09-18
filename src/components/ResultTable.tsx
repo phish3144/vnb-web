@@ -9,13 +9,29 @@ import {
   toHref,
 } from '../utils';
 import { hasVnbTabErgaenzung } from '../filter';
+import {
+  type OverrideField,
+  type OverridesMap,
+  recordKey,
+} from '../overrides';
 
 interface Props {
   records: VnbRecord[];
+  /** Original CSV-Zeilen (ohne Overrides), keyed by recordKey */
+  baseByKey: Map<string, VnbRecord>;
+  overrides: OverridesMap;
+  onFieldChange: (key: string, field: OverrideField, value: string) => void;
+  onResetRow: (key: string) => void;
 }
 
-export function ResultTable({ records }: Props) {
-  const [expanded, setExpanded] = useState<number | null>(null);
+export function ResultTable({
+  records,
+  baseByKey,
+  overrides,
+  onFieldChange,
+  onResetRow,
+}: Props) {
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   if (records.length === 0) {
     return (
@@ -42,13 +58,20 @@ export function ResultTable({ records }: Props) {
         </thead>
         <tbody>
           {records.map((rec, i) => {
-            const open = expanded === i;
+            const key = recordKey(rec);
+            const open = expanded === key;
+            const hasOv = !!overrides[key] && Object.keys(overrides[key]).length > 0;
             return (
               <RowGroup
-                key={`${rec.Name}-${rec.PLZ}-${i}`}
+                key={`${key}-${i}`}
                 rec={rec}
+                base={baseByKey.get(key) ?? rec}
+                rowKey={key}
                 open={open}
-                onToggle={() => setExpanded(open ? null : i)}
+                hasOverride={hasOv}
+                onToggle={() => setExpanded(open ? null : key)}
+                onFieldChange={onFieldChange}
+                onResetRow={onResetRow}
               />
             );
           })}
@@ -60,12 +83,22 @@ export function ResultTable({ records }: Props) {
 
 function RowGroup({
   rec,
+  base,
+  rowKey,
   open,
+  hasOverride,
   onToggle,
+  onFieldChange,
+  onResetRow,
 }: {
   rec: VnbRecord;
+  base: VnbRecord;
+  rowKey: string;
   open: boolean;
+  hasOverride: boolean;
   onToggle: () => void;
+  onFieldChange: (key: string, field: OverrideField, value: string) => void;
+  onResetRow: (key: string) => void;
 }) {
   const muted = isBdewOrMusterOnly(rec);
   const tabLink = primaryTabLink(rec);
@@ -103,6 +136,19 @@ function RowGroup({
               VNB-TAB
             </span>
           )}
+          {hasOverride && (
+            <span className="badge-override" title="Lokale Überschreibungen">
+              lokal
+            </span>
+          )}
+          {isPresent(rec.Besonderheiten) && (
+            <span
+              className="badge-besonderheit"
+              title={rec.Besonderheiten}
+            >
+              Besonderheit
+            </span>
+          )}
         </td>
         <td className="hide-sm">{displayValue(rec.Ort)}</td>
         <td className="hide-md mono">{displayValue(rec.PLZ)}</td>
@@ -126,7 +172,14 @@ function RowGroup({
       {open && (
         <tr className={`detail-row ${muted ? 'row-muted' : ''}`}>
           <td colSpan={8}>
-            <DetailPanel rec={rec} />
+            <DetailPanel
+              rec={rec}
+              base={base}
+              rowKey={rowKey}
+              hasOverride={hasOverride}
+              onFieldChange={onFieldChange}
+              onResetRow={onResetRow}
+            />
           </td>
         </tr>
       )}
@@ -177,10 +230,60 @@ function hostLabel(url: string): string {
   }
 }
 
-function DetailPanel({ rec }: { rec: VnbRecord }) {
+function DetailPanel({
+  rec,
+  base,
+  rowKey,
+  hasOverride,
+  onFieldChange,
+  onResetRow,
+}: {
+  rec: VnbRecord;
+  base: VnbRecord;
+  rowKey: string;
+  hasOverride: boolean;
+  onFieldChange: (key: string, field: OverrideField, value: string) => void;
+  onResetRow: (key: string) => void;
+}) {
   const hasErgaenzung = isPresent(rec.TAB_Ergaenzung_Link);
+
+  const edit = (field: OverrideField, label: string, multiline?: boolean) => (
+    <EditableItem
+      label={label}
+      field={field}
+      value={rec[field]}
+      baseValue={base[field]}
+      multiline={multiline}
+      onChange={(v) => onFieldChange(rowKey, field, v)}
+    />
+  );
+
   return (
-    <div className="detail-panel">
+    <div className="detail-panel" onClick={(e) => e.stopPropagation()}>
+      <div className="detail-toolbar">
+        {hasOverride && (
+          <span className="badge-override" title="Dieser Eintrag hat lokale Überschreibungen">
+            lokal überschrieben
+          </span>
+        )}
+        <button
+          type="button"
+          className="btn btn-secondary btn-sm"
+          disabled={!hasOverride}
+          onClick={() => {
+            if (
+              window.confirm(
+                'Lokale Überschreibungen für diesen Eintrag zurücksetzen?',
+              )
+            ) {
+              onResetRow(rowKey);
+            }
+          }}
+        >
+          Overrides zurücksetzen
+        </button>
+      </div>
+
       <dl className="detail-grid">
         <DetailItem label="Name" value={rec.Name} />
         <DetailItem label="Rechtsform" value={rec.Rechtsform} />
@@ -188,31 +291,27 @@ function DetailPanel({ rec }: { rec: VnbRecord }) {
         <DetailItem label="PLZ" value={rec.PLZ} />
         <DetailItem label="Ort" value={rec.Ort} />
         <DetailItem label="Bundesland" value={rec.Bundesland} />
-        <DetailItem label="Telefon" value={rec.Telefon} />
-        <DetailItem label="E-Mail" value={rec.Email} email />
-        <DetailItem label="Website" value={rec.Website} links />
-        {hasErgaenzung && (
-          <DetailItem
-            label="TAB-Ergänzung (primär)"
-            value={rec.TAB_Ergaenzung_Link}
-            links
-          />
+
+        {edit('Telefon', 'Telefon')}
+        {edit('Email', 'E-Mail')}
+        {edit('Website', 'Website')}
+        {edit(
+          'TAB_Ergaenzung_Link',
+          hasErgaenzung ? 'TAB-Ergänzung (primär)' : 'TAB-Ergänzung',
         )}
-        <DetailItem
-          label={hasErgaenzung ? 'TAB Niederspannung (Fallback)' : 'TAB Niederspannung'}
-          value={rec.TAB_Niederspannung_Link}
-          links
-        />
+        {edit(
+          'TAB_Niederspannung_Link',
+          hasErgaenzung ? 'TAB Niederspannung (Fallback)' : 'TAB Niederspannung',
+        )}
         <DetailItem label="TAB-Stand" value={rec.TAB_Stand} />
-        <DetailItem label="Anmeldeportal" value={rec.Anmeldeportal} links />
+        {edit('Anmeldeportal', 'Anmeldeportal')}
+        {edit('Planauskunft_Link', 'Planauskunft')}
+
         {isPresent(rec.MastrNummer) && (
           <DetailItem label="MaStR-Nummer" value={rec.MastrNummer} />
         )}
         {isPresent(rec.TAB_Typ) && (
           <DetailItem label="TAB-Typ" value={rec.TAB_Typ} />
-        )}
-        {isPresent(rec.Planauskunft_Link) && (
-          <DetailItem label="Planauskunft" value={rec.Planauskunft_Link} links />
         )}
         {isPresent(rec.Link_geprueft) && (
           <DetailItem label="Link geprüft" value={rec.Link_geprueft} />
@@ -220,10 +319,104 @@ function DetailPanel({ rec }: { rec: VnbRecord }) {
         {isPresent(rec.Link_Status) && (
           <DetailItem label="Link-Status" value={rec.Link_Status} />
         )}
+
         <DetailItem label="Quelle" value={rec.Quelle} links />
+        {isPresent(rec.Quelle_Stammdaten) && (
+          <DetailItem label="Quelle Stammdaten" value={rec.Quelle_Stammdaten} links />
+        )}
+        {isPresent(rec.Quelle_TAB) && (
+          <DetailItem label="Quelle TAB" value={rec.Quelle_TAB} links />
+        )}
+        {isPresent(rec.Quelle_Portal) && (
+          <DetailItem label="Quelle Portal" value={rec.Quelle_Portal} links />
+        )}
+        {isPresent(rec.Quelle_Planauskunft) && (
+          <DetailItem
+            label="Quelle Planauskunft"
+            value={rec.Quelle_Planauskunft}
+            links
+          />
+        )}
         <DetailItem label="Recherche-Datum" value={rec.Recherche_Datum} />
         <DetailItem label="Anmerkung" value={rec.Anmerkung} wide />
+        {edit('Besonderheiten', 'Besonderheiten', true)}
       </dl>
+    </div>
+  );
+}
+
+function EditableItem({
+  label,
+  field,
+  value,
+  baseValue,
+  multiline,
+  onChange,
+}: {
+  label: string;
+  field: OverrideField;
+  value: string;
+  baseValue: string;
+  multiline?: boolean;
+  onChange: (v: string) => void;
+}) {
+  const overridden = value !== baseValue;
+  const urls = !multiline ? extractUrls(value) : [];
+  const isEmail = field === 'Email' && value.includes('@');
+
+  return (
+    <div className={`detail-item editable ${multiline ? 'wide' : ''} ${overridden ? 'is-overridden' : ''}`}>
+      <dt>
+        {label}
+        {overridden && (
+          <span className="override-mark" title="Lokal überschrieben">
+            {' '}
+            ✎
+          </span>
+        )}
+      </dt>
+      <dd>
+        {multiline ? (
+          <textarea
+            className="edit-input edit-textarea"
+            rows={3}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="Freitext…"
+            aria-label={label}
+          />
+        ) : (
+          <input
+            type="text"
+            className="edit-input"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="n/a oder Wert…"
+            aria-label={label}
+            inputMode={field === 'Telefon' ? 'tel' : field === 'Email' ? 'email' : 'url'}
+          />
+        )}
+        {!multiline && urls.length > 0 && (
+          <span className="link-stack edit-links">
+            {urls.map((u) => (
+              <a
+                key={u}
+                href={toHref(u)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="ext-link"
+              >
+                {u}
+              </a>
+            ))}
+          </span>
+        )}
+        {isEmail && (
+          <a href={`mailto:${value.trim()}`} className="ext-link edit-links">
+            E-Mail öffnen
+          </a>
+        )}
+      </dd>
     </div>
   );
 }

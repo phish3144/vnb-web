@@ -22,6 +22,11 @@ const FIELDS: (keyof VnbRecord)[] = [
   'Planauskunft_Link',
   'Link_geprueft',
   'Link_Status',
+  'Quelle_Stammdaten',
+  'Quelle_TAB',
+  'Quelle_Portal',
+  'Quelle_Planauskunft',
+  'Besonderheiten',
 ];
 
 /** Strip UTF-8 BOM if present */

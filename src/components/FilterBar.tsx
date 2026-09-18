@@ -134,6 +134,14 @@ export function FilterBar({ filters, onChange, onReset, tabTypen }: Props) {
           onText={() => {}}
           hideText
         />
+        <PresenceGroup
+          label="hat Besonderheiten"
+          mode={filters.hatBesonderheiten}
+          text=""
+          onMode={(m) => set('hatBesonderheiten', m)}
+          onText={() => {}}
+          hideText
+        />
         <label className="field field-tab-typ">
           <span>TAB-Typ</span>
           {tabTypen.length > 0 ? (

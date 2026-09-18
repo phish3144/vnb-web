@@ -81,6 +81,7 @@ const QUICK_FIELDS: (keyof VnbRecord)[] = [
   'TAB_Ergaenzung_Link',
   'Anmeldeportal',
   'Anmerkung',
+  'Besonderheiten',
   'Rechtsform',
   'MastrNummer',
   'TAB_Typ',
@@ -106,6 +107,9 @@ export function matchesFilters(rec: VnbRecord, f: Filters): boolean {
 
   if (f.hatVnbTabErgaenzung === 'has' && !hasVnbTabErgaenzung(rec)) return false;
   if (f.hatVnbTabErgaenzung === 'missing' && hasVnbTabErgaenzung(rec)) return false;
+
+  if (f.hatBesonderheiten === 'has' && isMissing(rec.Besonderheiten)) return false;
+  if (f.hatBesonderheiten === 'missing' && isPresent(rec.Besonderheiten)) return false;
 
   if (f.tabTyp.trim()) {
     const want = f.tabTyp.trim().toLowerCase();

@@ -21,6 +21,13 @@ export interface VnbRecord {
   Planauskunft_Link: string;
   Link_geprueft: string;
   Link_Status: string;
+  /** Provenienz (optional) */
+  Quelle_Stammdaten: string;
+  Quelle_TAB: string;
+  Quelle_Portal: string;
+  Quelle_Planauskunft: string;
+  /** Freitext-Besonderheiten (CSV optional + lokal überschreibbar) */
+  Besonderheiten: string;
 }
 
 export type PresenceFilter = 'any' | 'has' | 'missing';
@@ -40,6 +47,8 @@ export interface Filters {
   hatVnbTabErgaenzung: PresenceFilter;
   /** Optionaler Filter nach TAB_Typ (exakter Wert oder leer = alle) */
   tabTyp: string;
+  /** Filter: hat Besonderheiten */
+  hatBesonderheiten: PresenceFilter;
   quick: string;
 }
 
@@ -56,6 +65,7 @@ export const EMPTY_FILTERS: Filters = {
   anmeldeportalText: '',
   hatVnbTabErgaenzung: 'any',
   tabTyp: '',
+  hatBesonderheiten: 'any',
   quick: '',
 };
 
