@@ -1,6 +1,16 @@
 # VNB-Suche
 
-Lokale Web-App zur Suche in Verteilnetzbetreiber-Stammdaten (CSV/JSON).
+Web-App zur Suche in **Verteilnetzbetreiber-Stammdaten** (MaStR/CSV). Läuft lokal mit Vite und als GitHub Pages.
+
+**Live:** https://phish3144.github.io/vnb-web/
+
+## Features
+
+- Schnellsuche und Ergebnisliste
+- Erweiterte Filter
+- Detailansicht (u. a. Aktionsbuttons, leere Bereiche ausblenden, Meta einklappbar)
+- Hell-/Dunkelmodus
+- Lokale Overrides / Werkzeuge für Datenpflege in der UI (siehe `src/overrides.ts`, `OverridesToolbar`, `ToolsPanel`)
 
 ## Installation & Start
 
@@ -11,7 +21,7 @@ npm run dev
 
 Entwicklungsserver: Vite (Standardport, meist `http://localhost:5173/vnb-web/`).
 
-## Daten austauschen
+## Daten
 
 Daten liegen unter `public/data/`.
 
