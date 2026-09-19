@@ -14,10 +14,10 @@ Im Repo unter `public/data/` (Stand laut `Recherche_Datum` / letztem CSV-Commit)
 | Recherche-Datum | **2026-09-18** (alle Zeilen) |
 | Mit Website | ~97 % |
 | Mit MaStR-Nummer | ~96 % |
-| Mit primärem TAB-Link | ~23 % (Ergänzung bevorzugt, sonst Niederspannung) |
+| Mit primärem TAB-Link (HTTP) | ~16 % (157; Ergänzung bevorzugt, sonst Niederspannung) |
 | Davon TAB-Ergänzungslink | 56 |
-| Nur TAB Niederspannung | 172 |
-| Mit Anmeldeportal | ~14 % |
+| Nur TAB Niederspannung (HTTP, ohne Ergänzung) | ~101 |
+| Mit Anmeldeportal (HTTP) | ~73 (~7 %) |
 | Mit Planauskunft | ~4 % |
 
 `TAB_Typ` (aktuell): überwiegend `Leer` / `Unbekannt`, daneben u. a. `BDEW_Muster`, `VNB_Ergaenzung`, `Regional`. Große TAB-Ergänzungen für große VNBs wurden parallel recherchiert und ins CSV übernommen (Commit vom 18.09.2026).
